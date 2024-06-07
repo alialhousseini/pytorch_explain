@@ -1,29 +1,319 @@
 import numpy as np
 import torch
+import logging
+import typing
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler('app.log'), logging.StreamHandler()])
+
+logger = logging.getLogger(__name__)
 
 
-def xor(size, random_state=42):
-    # sample from normal distribution
+def is_bin_even(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset for the 21-multiplexer problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Set random seed for reproducibility
     np.random.seed(random_state)
+
+    # Generate random samples uniformly between 0 and 1
+    x = np.random.uniform(0, 1, (size, 4))
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+
+    # Define concepts: whether each value is greater than 0.5
+    c = np.stack([
+        x[:, 0] > 0.5,  # c0
+        x[:, 1] > 0.5,  # c1
+        x[:, 2] > 0.5,  # c2
+        x[:, 3] > 0.5,  # c3
+    ]).T
+    if log:
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    y = np.logical_not(c[:, 3])
+
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
+    x = torch.FloatTensor(x)
+    c = torch.FloatTensor(c)
+    y = torch.FloatTensor(y)
+
+    return x, c, y.unsqueeze(-1)
+
+
+def mux41(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset for the 21-multiplexer problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Generate random samples uniformly between 0 and 1
+    x = np.random.uniform(0, 1, (size, 6))
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+
+    # Define concepts: whether each value is greater than 0.5
+    c = np.stack([
+        x[:, 0] > 0.5,  # c0
+        x[:, 1] > 0.5,  # c1
+        x[:, 2] > 0.5,  # c2
+        x[:, 3] > 0.5,  # c3
+        x[:, 4] > 0.5,  # x1
+        x[:, 5] > 0.5,  # x2
+    ]).T
+    if log:
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    # Define labels as XOR of the two concepts
+    y1 = np.logical_or(
+        np.logical_and(
+            np.logical_and(c[:, 0], np.logical_not(c[:, 4])),
+            np.logical_not(c[:, 5])),
+
+        np.logical_and(
+            np.logical_and(c[:, 1], np.logical_not(c[:, 4])),
+            c[:, 5])
+    )
+
+    y2 = np.logical_or(
+        np.logical_and(
+            np.logical_and(c[:, 2], c[:, 4]),
+            np.logical_not(c[:, 5])),
+
+        np.logical_and(
+            np.logical_and(c[:, 3], c[:, 4]),
+            c[:, 5])
+    )
+
+    y = np.logical_or(y1, y2)
+
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
+    x = torch.FloatTensor(x)
+    c = torch.FloatTensor(c)
+    y = torch.FloatTensor(y)
+
+    return x, c, y.unsqueeze(-1)
+
+
+def mux41_two_inputs(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset for the 41-multiplexer modified problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Generate random samples uniformly between 0 and 1
+    x = np.random.uniform(0, 1, (size, 3))
+    ones = np.ones((size, 1))
+    zeros = np.zeros((size, 1))
+    x = np.hstack([x, ones, zeros])
+
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+
+    # Define concepts: whether each value is greater than 0.5
+    c = np.stack([
+        x[:, 0] > 0.5,  # c
+        x[:, 1] > 0.5,  # A
+        x[:, 2] > 0.5,  # B
+        x[:, 3] > 0.5,  # 1
+        x[:, 4] > 0.5,  # 0
+    ]).T
+    if log:
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    # Define labels as XOR of the two concepts
+    y1 = np.logical_and(
+        np.logical_not(c[:, 1]),
+        c[:, 0])
+
+    y2 = np.logical_and(
+        c[:, 1],
+        np.logical_not(c[:, 2]))
+
+    y = np.logical_or(y1, y2)
+
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
+    x = torch.FloatTensor(x)
+    c = torch.FloatTensor(c)
+    y = torch.FloatTensor(y)
+
+    return x, c, y.unsqueeze(-1)
+
+
+def two_muxes(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset for the 41-multiplexer modified problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Generate random samples uniformly between 0 and 1
+    x = np.random.uniform(0, 1, (size, 3))
+
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+
+    # Define concepts: whether each value is greater than 0.5
+    c = np.stack([
+        x[:, 0] > 0.5,  # E
+        x[:, 1] > 0.5,  # X
+        x[:, 2] > 0.5,  # Y
+    ]).T
+
+    if log:
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    # Define labels as XOR of the two concepts
+    y1 = np.logical_and(
+        np.logical_not(c[:, 2]),
+        c[:, 1])
+
+    y2 = np.logical_and(
+        np.logical_and(
+            c[:, 2],
+            np.logical_not(c[:, 1])),
+        c[:, 0])
+
+    y = np.logical_or(y1, y2)
+
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
+    x = torch.FloatTensor(x)
+    c = torch.FloatTensor(c)
+    y = torch.FloatTensor(y)
+
+    return x, c, y.unsqueeze(-1)
+
+
+def xor(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset for the XOR problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Generate random samples uniformly between 0 and 1
     x = np.random.uniform(0, 1, (size, 2))
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+
+    # Define concepts: whether each value is greater than 0.5
     c = np.stack([
         x[:, 0] > 0.5,
         x[:, 1] > 0.5,
     ]).T
+
+    if log:
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    # Define labels as XOR of the two concepts
     y = np.logical_xor(c[:, 0], c[:, 1])
 
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
     x = torch.FloatTensor(x)
     c = torch.FloatTensor(c)
     y = torch.FloatTensor(y)
+
     return x, c, y.unsqueeze(-1)
 
 
-def trigonometry(size, random_state=42):
+def trigonometry(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset with trigonometric features and a downstream task.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (input_features), concepts (concepts), and labels (downstream_task).
+    """
+    # Set random seed for reproducibility
     np.random.seed(random_state)
+
+    # Generate random samples from a normal distribution
     h = np.random.normal(0, 2, (size, 3))
+    if log:
+        logger.info(f"h: {h.shape}")
+        logger.info(f"h: {h[:5]}")
+
     x, y, z = h[:, 0], h[:, 1], h[:, 2]
 
-    # raw features
+    # Compute raw features using trigonometric and polynomial functions
     input_features = np.stack([
         np.sin(x) + x,
         np.cos(x) + x,
@@ -34,37 +324,98 @@ def trigonometry(size, random_state=42):
         x ** 2 + y ** 2 + z ** 2,
     ]).T
 
-    # concetps
-    concetps = np.stack([
+    if log:
+        logger.info(f"input_features: {input_features.shape}")
+        logger.info(f"input_features: {input_features[:5]}")
+
+    # Define concepts: whether each value is greater than 0
+    concepts = np.stack([
         x > 0,
         y > 0,
         z > 0,
     ]).T
 
-    # task
+    if log:
+        logger.info(f"concepts: {concepts.shape}")
+        logger.info(f"concepts: {concepts[:5]}")
+
+    # Define downstream task: whether the sum of values exceeds 1
     downstream_task = (x + y + z) > 1
 
+    if log:
+        logger.info(f"downstream_task: {downstream_task.shape}")
+        logger.info(f"downstream_task: {downstream_task[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
     input_features = torch.FloatTensor(input_features)
-    concetps = torch.FloatTensor(concetps)
+    concepts = torch.FloatTensor(concepts)
     downstream_task = torch.FloatTensor(downstream_task)
-    return input_features, concetps, downstream_task.unsqueeze(-1)
+
+    return input_features, concepts, downstream_task.unsqueeze(-1)
 
 
-def dot(size, random_state=42):
-    # sample from normal distribution
+def dot(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset based on dot products of vectors.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Generate random vectors from a normal distribution
     emb_size = 2
     v1 = np.random.randn(size, emb_size) * 2
     v2 = np.ones(emb_size)
     v3 = np.random.randn(size, emb_size) * 2
     v4 = -np.ones(emb_size)
-    x = np.hstack([v1+v3, v1-v3])
+    if log:
+        logger.info(f"v1: {v1.shape}")
+        logger.info(f"v2: {v2.shape}")
+        logger.info(f"v3: {v3.shape}")
+        logger.info(f"v4: {v4.shape}")
+
+    # Concatenate vectors to form input features
+    x = np.hstack([v1 + v3, v1 - v3])
+
+    # Define concepts based on dot product results
     c = np.stack([
         np.dot(v1, v2).ravel() > 0,
         np.dot(v3, v4).ravel() > 0,
     ]).T
-    y = ((v1*v3).sum(axis=-1) > 0).astype(np.int64)
 
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    # Define labels based on element-wise multiplication of vectors
+    y = ((v1 * v3).sum(axis=-1) > 0).astype(np.int64)
+
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
     x = torch.FloatTensor(x)
     c = torch.FloatTensor(c)
     y = torch.Tensor(y)
+
     return x, c, y.unsqueeze(-1)
+
+
+if __name__ == "__main__":
+    xor(10, log=True)
+    # print('--------------------------------')
+    # trigonometry(10, log=True)
+    # print('--------------------------------')
+    # dot(10, log=True)
+    # print('--------------------------------')
+    # mux41(10, log=True)

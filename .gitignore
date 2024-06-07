@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+MNIST/
 # scikit-learn specific
 doc/_build/
 doc/auto_examples/
@@ -13,7 +13,7 @@ doc/modules/generated/
 doc/datasets/generated/
 
 # Distribution / packaging
-
+./experiments/mnsit_addition.py
 .Python
 env/
 build/

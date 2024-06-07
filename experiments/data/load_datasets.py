@@ -65,7 +65,8 @@ def load_mimic(base_dir: str = './data/'):
     # datay = (data['hospital_los_day']>6).values
     # datay = data['hosp_exp_flg'].values
 
-    datay = (data['day_28_flg'].values + data['hosp_exp_flg'].values + data['icu_exp_flg'].values + (1-data['censor_flg'].values)) > 0
+    datay = (data['day_28_flg'].values + data['hosp_exp_flg'].values +
+             data['icu_exp_flg'].values + (1-data['censor_flg'].values)) > 0
     # datay = data['day_28_flg'].values
 
     # model = DecisionTreeClassifier(max_depth=3)
@@ -82,8 +83,10 @@ def load_mimic(base_dir: str = './data/'):
 
 
 def load_celldiff(base_dir='./data'):
-    gene_expression_matrix = pd.read_csv(f'{base_dir}/celldiff/data_matrix.csv', index_col=0)
-    clustering_labels = pd.read_csv(f'{base_dir}/celldiff/cluster_labels.csv', index_col=0)
+    gene_expression_matrix = pd.read_csv(
+        f'{base_dir}/celldiff/data_matrix.csv', index_col=0)
+    clustering_labels = pd.read_csv(
+        f'{base_dir}/celldiff/cluster_labels.csv', index_col=0)
     biomarkers = pd.read_csv(f'{base_dir}/celldiff/markers.csv', index_col=0)
 
     labels = clustering_labels.values.squeeze()
@@ -107,7 +110,8 @@ def load_celldiff(base_dir='./data'):
 
 def load_vDem(base_dir='./data'):
     data = pd.read_csv(f'{base_dir}/vdem/V-Dem-CY-Core-v10.csv')
-    data['country_name_year'] = data['country_name'] + '_' + data['year'].astype(str)
+    data['country_name_year'] = data['country_name'] + \
+        '_' + data['year'].astype(str)
     data_2000 = data[data['year'] > 2000].iloc[:, 12:-1].dropna(axis=1)
 
     high_level_indicators = [
@@ -162,7 +166,8 @@ def load_vDem(base_dir='./data'):
     for indicator in low_level_indicators:
         c = data_low_raw[indicator].values
         n_bins = int(c.max())
-        kbin = KBinsDiscretizer(n_bins=n_bins, encode='onehot-dense', strategy='uniform')
+        kbin = KBinsDiscretizer(
+            n_bins=n_bins, encode='onehot-dense', strategy='uniform')
         c1h = kbin.fit_transform(c.reshape(-1, 1))
         one_hots.append(c1h)
 
@@ -194,8 +199,10 @@ def load_vDem(base_dir='./data'):
 
 
 def load_mnist2(base_dir='./data'):
-    train_data = torch.load(os.path.join(base_dir, 'MNIST_X_to_C/c2y_training.pt'))
-    val_data = torch.load(os.path.join(base_dir, 'MNIST_X_to_C/c2y_validation.pt'))
+    train_data = torch.load(os.path.join(
+        base_dir, 'MNIST_X_to_C/c2y_training.pt'))
+    val_data = torch.load(os.path.join(
+        base_dir, 'MNIST_X_to_C/c2y_validation.pt'))
     test_data = torch.load(os.path.join(base_dir, 'MNIST_X_to_C/c2y_test.pt'))
     train_data.tensors = ((train_data.tensors[0]).to(torch.float),
                           (one_hot((train_data.tensors[1].argmax(dim=1) % 2 == 1).to(torch.long)).to(torch.float)))
@@ -204,7 +211,8 @@ def load_mnist2(base_dir='./data'):
     test_data.tensors = ((test_data.tensors[0]).to(torch.float),
                          (one_hot((test_data.tensors[1].argmax(dim=1) % 2 == 1).to(torch.long)).to(torch.float)))
 
-    concept_names = ['isZero', 'isOne', 'isTwo', 'isThree', 'isFour', 'isFive', 'isSix', 'isSeven', 'isEight', 'isNine']
+    concept_names = ['isZero', 'isOne', 'isTwo', 'isThree',
+                     'isFour', 'isFive', 'isSix', 'isSeven', 'isEight', 'isNine']
     return train_data, val_data, test_data, concept_names
 
 
@@ -252,11 +260,13 @@ def load_cub(base_dir='./data'):
             # print(np.unique(y, return_counts=True))
 
             x_train = torch.FloatTensor(x_train)
-            y_train = one_hot(torch.tensor(y_train).to(torch.long)).to(torch.float)
+            y_train = one_hot(torch.tensor(y_train).to(
+                torch.long)).to(torch.float)
             x_val = torch.FloatTensor(x_val)
             y_val = one_hot(torch.tensor(y_val).to(torch.long)).to(torch.float)
             x_test = torch.FloatTensor(x_test)
-            y_test = one_hot(torch.tensor(y_test).to(torch.long)).to(torch.float)
+            y_test = one_hot(torch.tensor(y_test).to(
+                torch.long)).to(torch.float)
 
             # print(one_hot(torch.tensor(y[trainval_idx]).to(torch.long)).to(torch.float).shape)
             # # print(one_hot(torch.tensor(y[trainval_idx]).to(torch.long)).to(torch.float).sum(dim=0))
