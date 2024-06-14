@@ -216,10 +216,12 @@ class ConceptReasoningLayerMod(torch.nn.Module):
             logger.info(f"Values: {values.shape}")
             logger.info(f"Values: {values}")
 
+        x_out = self.filter_sign_nn(x)
+
         if sign_attn is None:
             # compute attention scores to build logic sentence
             # each attention score will represent whether the concept should be active or not in the logic sentence
-            weight_fs = torch.sigmoid(self.filter_sign_nn(x))
+            weight_fs = torch.sigmoid(x_out)
             sign_attn = self.split(weight_fs)[0]
 
             if self.log:
@@ -236,7 +238,7 @@ class ConceptReasoningLayerMod(torch.nn.Module):
 
         if filter_attn is None:
             # compute attention scores to identify only relevant concepts for each class
-            filter_attn = softselect(self.split(x)[1], self.temperature)
+            filter_attn = softselect(self.split(x_out)[1], self.temperature)
 
         if self.log:
             logger.info(f"Filter Attn: {filter_attn.shape}")
@@ -446,6 +448,7 @@ class ReasoningLinearLayer(torch.nn.Module):
             self.mapper_nn = SignRelevanceNet(sign_attn.shape[1], n_classes)
 
         self.log = log
+
     def forward(self, x, c, return_params=False, coeff_comp=None):
         if self.log:
             logger.info(f"X: {x.shape}")
@@ -479,6 +482,7 @@ class ReasoningLinearLayer(torch.nn.Module):
         if return_params:
             return preds, coeff_vals, bias_vals
         return preds
+
 
 class IntpLinearLayer(torch.nn.Module):
     """
