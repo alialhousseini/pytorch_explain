@@ -363,9 +363,6 @@ class SignRelevanceAttention(nn.Module):
         self.relevance_weights = nn.Parameter(
             torch.randn(num_concepts, num_classes))
 
-        # Optional: additional transformation layers if needed
-        self.transform = nn.Linear(num_classes, num_classes)
-
     def forward(self, sign_tensor, relevance_tensor):
         # Apply softmax to weights
         sign_attention = F.softmax(self.sign_weights, dim=0)
@@ -379,9 +376,6 @@ class SignRelevanceAttention(nn.Module):
 
         # Element-wise multiplication as one way to combine them
         combined = sign_attended * relevance_attended
-
-        # Optional: transform the combined tensor to refine the outputs
-        combined = self.transform(combined)
 
         return combined
 
@@ -434,53 +428,58 @@ class WeightedMerger(nn.Module):
 
 
 class ReasoningLinearLayer(torch.nn.Module):
-    def __init__(self, sign_attn, filter_attn, n_classes, modality="", log=False):
+    def __init__(self, sign_shape, filter_shape, n_classes, modality="PhDinZurich", bias_comp="post", log=False):
         super().__init__()
+
+        # Sign Shape == Filter Shape == sign_attn.shape[1]
 
         self.mode = modality
         # Modality are : 1. Attention 2. Weighted 3. nn
         if self.mode == "Attention":
             self.mapper_nn = SignRelevanceAttention(
-                sign_attn.shape[1], n_classes)
+                sign_shape, n_classes)
         elif self.mode == "Weighted":
-            self.mapper_nn = WeightedMerger(sign_attn.shape[1])
+            self.mapper_nn = WeightedMerger(sign_shape)
         else:
-            self.mapper_nn = SignRelevanceNet(sign_attn.shape[1], n_classes)
+            self.mapper_nn = SignRelevanceNet(sign_shape, n_classes)
 
         self.log = log
 
-    def forward(self, x, c, return_params=False, coeff_comp=None):
+    def forward(self, sign_attn, filter_attn, c, return_params=False, coeff_comp=None):
         if self.log:
-            logger.info(f"X: {x.shape}")
+            logger.info(f"sign attention: {sign_attn.shape}")
+            logger.info(f"filter attention: {filter_attn.shape}")
             logger.info(f"C: {c.shape}")
 
-        if coeff_comp is None:
-            coeff_vals = self.coeff_nn(x)
-            if self.log:
-                logger.info(f"Assigned Coeffs: {coeff_vals.shape}")
-                logger.info(f"Assigned Coeffs: {coeff_vals}")
+        transformed_coeffs = self.mapper_nn(sign_attn, filter_attn)
+        if self.log:
+            logger.info(f"Transformed: {transformed_coeffs.shape}")
+            logger.info(f"Transformed: {transformed_coeffs}")
 
         # y = \sum{c_i * alpha_i}
-        logits = (c.unsqueeze(-1) * coeff_vals).sum(dim=1).float()
+        logits = (c.unsqueeze(-1) * transformed_coeffs).sum(dim=1).float()
 
         if self.log:
             logger.info(f"Logits: {logits.shape}")
             logger.info(f"Logits: {logits}")
 
         if self.bias_computation == "post":
-            bias_vals = self.bias_nn(x)
+            bias_vals = self.bias_nn(transformed_coeffs)
             bias_vals = bias_vals.mean(dim=1)
             if self.log:
                 logger.info(f"Assigned Biases: {bias_vals.shape}")
                 logger.info(f"Assigned Biases: {bias_vals}")
         else:
-            bias_vals = self.bias_nn(x.mean(dim=1))
+            bias_vals = self.bias_nn(transformed_coeffs.mean(dim=1))
+            if self.log:
+                logger.info(f"Assigned Biases: {bias_vals.shape}")
+                logger.info(f"Assigned Biases: {bias_vals}")
 
         logits += bias_vals
 
         preds = logits
         if return_params:
-            return preds, coeff_vals, bias_vals
+            return preds, transformed_coeffs, bias_vals
         return preds
 
 
