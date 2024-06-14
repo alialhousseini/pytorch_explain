@@ -446,146 +446,39 @@ class ReasoningLinearLayer(torch.nn.Module):
             self.mapper_nn = SignRelevanceNet(sign_attn.shape[1], n_classes)
 
         self.log = log
-
-    def forward(self, x, c, return_attn=False, sign_attn=None, filter_attn=None):
-        values = c.unsqueeze(-1).repeat(1, 1, self.n_classes)
+    def forward(self, x, c, return_params=False, coeff_comp=None):
         if self.log:
-            logger.info(f"Values: {values.shape}")
-            logger.info(f"Values: {values}")
+            logger.info(f"X: {x.shape}")
+            logger.info(f"C: {c.shape}")
 
-        if sign_attn is None:
-            # compute attention scores to build logic sentence
-            # each attention score will represent whether the concept should be active or not in the logic sentence
-            sign_attn = torch.sigmoid(self.sign_nn(x))
+        if coeff_comp is None:
+            coeff_vals = self.coeff_nn(x)
             if self.log:
-                logger.info(f"Sign Attn: {sign_attn.shape}")
-                logger.info(f"Sign Attn: {sign_attn}")
+                logger.info(f"Assigned Coeffs: {coeff_vals.shape}")
+                logger.info(f"Assigned Coeffs: {coeff_vals}")
 
-        # attention scores need to be aligned with predicted concept truth values (attn <-> values)
-        # (not A or V) and (A or not V) <-> (A <-> V)
-        sign_terms = self.logic.iff_pair(sign_attn, values)
-
-        if self.log:
-            logger.info(f"Sign Terms: {sign_terms.shape}")
-            logger.info(f"Sign Terms: {sign_terms}")
-
-        if filter_attn is None:
-            # compute attention scores to identify only relevant concepts for each class
-            filter_attn = softselect(self.filter_nn(x), self.temperature)
+        # y = \sum{c_i * alpha_i}
+        logits = (c.unsqueeze(-1) * coeff_vals).sum(dim=1).float()
 
         if self.log:
-            logger.info(f"Filter Attn: {filter_attn.shape}")
-            logger.info(f"Filter Attn: {filter_attn}")
+            logger.info(f"Logits: {logits.shape}")
+            logger.info(f"Logits: {logits}")
 
-        # filter value
-        # filtered implemented as "or(a, not b)", corresponding to "b -> a"
-        filtered_values = self.logic.disj_pair(
-            sign_terms, self.logic.neg(filter_attn))
-
-        if self.log:
-            logger.info(f"Filtered Values: {filtered_values.shape}")
-            logger.info(f"Filtered Values: {filtered_values}")
-
-        # generate minterm
-        preds = self.logic.conj(filtered_values, dim=1).squeeze(1).float()
-
-        if self.log:
-            logger.info(f"Preds: {preds.shape}")
-            logger.info(f"Preds: {preds}")
-
-        if return_attn:
-            return preds, sign_attn, filter_attn
+        if self.bias_computation == "post":
+            bias_vals = self.bias_nn(x)
+            bias_vals = bias_vals.mean(dim=1)
+            if self.log:
+                logger.info(f"Assigned Biases: {bias_vals.shape}")
+                logger.info(f"Assigned Biases: {bias_vals}")
         else:
-            return preds
+            bias_vals = self.bias_nn(x.mean(dim=1))
 
-    def explain(self, x, c, mode, concept_names=None, class_names=None, filter_attn=None):
-        assert mode in ['local', 'global', 'exact']
+        logits += bias_vals
 
-        if concept_names is None:
-            concept_names = [f'c_{i}' for i in range(c.shape[1])]
-        if class_names is None:
-            class_names = [f'y_{i}' for i in range(self.n_classes)]
-
-        # make a forward pass to get predictions and attention weights
-        y_preds, sign_attn_mask, filter_attn_mask = self.forward(
-            x, c, return_attn=True, filter_attn=filter_attn)
-
-        explanations = []
-        all_class_explanations = {cn: [] for cn in class_names}
-        for sample_idx in range(len(x)):
-            prediction = y_preds[sample_idx] > 0.5
-            active_classes = torch.argwhere(prediction).ravel()
-
-            if len(active_classes) == 0:
-                # if no class is active for this sample, then we cannot extract any explanation
-                explanations.append({
-                    'class': -1,
-                    'explanation': '',
-                    'attention': [],
-                })
-            else:
-                # else we can extract an explanation for each active class!
-                for target_class in active_classes:
-                    attentions = []
-                    minterm = []
-                    for concept_idx in range(len(concept_names)):
-                        c_pred = c[sample_idx, concept_idx]
-                        sign_attn = sign_attn_mask[sample_idx,
-                                                   concept_idx, target_class]
-                        filter_attn = filter_attn_mask[sample_idx,
-                                                       concept_idx, target_class]
-
-                        # we first check if the concept was relevant
-                        # a concept is relevant <-> the filter attention score is lower than the concept probability
-                        at_score = 0
-                        sign_terms = self.logic.iff_pair(
-                            sign_attn, c_pred).item()
-                        if self.logic.neg(filter_attn) < sign_terms:
-                            if sign_attn >= 0.5:
-                                # if the concept is relevant and the sign is positive we just take its attention score
-                                at_score = filter_attn.item()
-                                if mode == 'exact':
-                                    minterm.append(
-                                        f'{sign_terms:.3f} ({concept_names[concept_idx]})')
-                                else:
-                                    minterm.append(
-                                        f'{concept_names[concept_idx]}')
-                            else:
-                                # if the concept is relevant and the sign is positive we take (-1) * its attention score
-                                at_score = -filter_attn.item()
-                                if mode == 'exact':
-                                    minterm.append(
-                                        f'{sign_terms:.3f} (~{concept_names[concept_idx]})')
-                                else:
-                                    minterm.append(
-                                        f'~{concept_names[concept_idx]}')
-                        attentions.append(at_score)
-
-                    # add explanation to list
-                    target_class_name = class_names[target_class]
-                    minterm = ' & '.join(minterm)
-                    all_class_explanations[target_class_name].append(minterm)
-                    explanations.append({
-                        'sample-id': sample_idx,
-                        'class': target_class_name,
-                        'explanation': minterm,
-                        'attention': attentions,
-                    })
-
-        if mode == 'global':
-            # count most frequent explanations for each class
-            explanations = []
-            for class_id, class_explanations in all_class_explanations.items():
-                explanation_count = Counter(class_explanations)
-                for explanation, count in explanation_count.items():
-                    explanations.append({
-                        'class': class_id,
-                        'explanation': explanation,
-                        'count': count,
-                    })
-
-        return explanations
-
+        preds = logits
+        if return_params:
+            return preds, coeff_vals, bias_vals
+        return preds
 
 class IntpLinearLayer(torch.nn.Module):
     """
