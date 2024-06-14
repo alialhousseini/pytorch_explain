@@ -32,6 +32,13 @@ def replace_names(explanation: str, concept_names: List[str]) -> str:
     return explanation
 
 
+
+############################################################################################################
+# Questa funzione testa una formula logica. Prende una formula logica come stringa, un tensore di input x, 
+# una soglia per binarizzare le caratteristiche e un flag booleano per il logging. Converte la formula in 
+# un’espressione simbolica, poi in una funzione NumPy che può valutare la formula logica sui dati di input. 
+# Infine, ritorna le previsioni ottenute valutando la formula sui dati di input.
+############################################################################################################
 def get_predictions(formula: str, x: torch.Tensor, threshold: float = 0.5, log: bool = False) -> typing.Optional[torch.Tensor]:
     """
     Tests a logic formula.
@@ -74,6 +81,14 @@ def get_predictions(formula: str, x: torch.Tensor, threshold: float = 0.5, log: 
         return predictions
 
 
+
+############################################################################################################
+# Questa funzione prende un modello, un tensore di input c, un indice di bordo edge_index, una posizione 
+# di campione sample_pos, una spiegazione come stringa, una classe target e una lista opzionale di nomi 
+# di concetti. Perturba le caratteristiche di input rimuovendo o aggiungendo termini dalla spiegazione e 
+# valuta l’effetto sulla previsione del modello. Ritorna due liste di termini: i “buoni” termini che, quando 
+# rimossi, peggiorano la previsione, e i “cattivi” termini che, quando rimossi, migliorano la previsione.
+############################################################################################################
 def get_the_good_and_bad_terms(
     model, c, edge_index, sample_pos, explanation, target_class, concept_names=None, threshold=0.5
 ):

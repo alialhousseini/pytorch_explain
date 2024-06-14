@@ -1,7 +1,10 @@
 import numpy as np
 import torch
+
+### New adds ###
 import logging
 import typing
+################
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG,
@@ -244,6 +247,8 @@ def two_muxes(size: int, random_state: int = 42, log: bool = False) -> typing.Tu
     return x, c, y.unsqueeze(-1)
 
 
+################################################################################################################################
+############################################ ORIGINAL: Pietro Barbiero #########################################################
 def xor(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Generate a dataset for the XOR problem.
@@ -287,6 +292,9 @@ def xor(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[to
     c = torch.FloatTensor(c)
     y = torch.FloatTensor(y)
 
+    # In summary, y.unsqueeze(-1) transforms 
+    # a 1D tensor into a 2D tensor by adding 
+    # an extra dimension at the end.
     return x, c, y.unsqueeze(-1)
 
 
