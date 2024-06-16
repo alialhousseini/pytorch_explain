@@ -428,7 +428,7 @@ class WeightedMerger(nn.Module):
 
 
 class ReasoningLinearLayer(torch.nn.Module):
-    def __init__(self, sign_shape, filter_shape, n_classes, modality="PhDinZurich", bias_comp="post", log=False):
+    def __init__(self, sign_shape, filter_shape, n_classes, modality="PhDinZurich", log=False):
         super().__init__()
 
         # Sign Shape == Filter Shape == sign_attn.shape[1]
@@ -448,7 +448,6 @@ class ReasoningLinearLayer(torch.nn.Module):
             self.bias_nn = SignRelevanceNet(sign_shape, n_classes)
 
         self.log = log
-        self.bias_computation = bias_comp
 
     def forward(self, sign_attn, filter_attn, c, return_params=False):
         if self.log:
@@ -468,17 +467,11 @@ class ReasoningLinearLayer(torch.nn.Module):
             logger.info(f"Logits: {logits.shape}")
             logger.info(f"Logits: {logits}")
 
-        if self.bias_computation == "post":
-            bias_vals = self.bias_nn(transformed_coeffs)
-            bias_vals = bias_vals.mean(dim=1)
-            if self.log:
-                logger.info(f"Assigned Biases: {bias_vals.shape}")
-                logger.info(f"Assigned Biases: {bias_vals}")
-        else:
-            bias_vals = self.bias_nn(transformed_coeffs.mean(dim=1))
-            if self.log:
-                logger.info(f"Assigned Biases: {bias_vals.shape}")
-                logger.info(f"Assigned Biases: {bias_vals}")
+        bias_vals = self.bias_nn(sign_attn, filter_attn)
+        bias_vals = bias_vals.mean(dim=1)
+        if self.log:
+            logger.info(f"Assigned Biases: {bias_vals.shape}")
+            logger.info(f"Assigned Biases: {bias_vals}")
 
         logits += bias_vals
 
