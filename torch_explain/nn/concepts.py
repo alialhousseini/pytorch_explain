@@ -438,10 +438,14 @@ class ReasoningLinearLayer(torch.nn.Module):
         if self.mode == "Attention":
             self.mapper_nn = SignRelevanceAttention(
                 sign_shape, n_classes)
+            self.bias_nn = SignRelevanceAttention(
+                sign_shape, n_classes)
         elif self.mode == "Weighted":
             self.mapper_nn = WeightedMerger(sign_shape)
+            self.bias_nn = WeightedMerger(sign_shape)
         else:
             self.mapper_nn = SignRelevanceNet(sign_shape, n_classes)
+            self.bias_nn = SignRelevanceNet(sign_shape, n_classes)
 
         self.log = log
         self.bias_computation = bias_comp
