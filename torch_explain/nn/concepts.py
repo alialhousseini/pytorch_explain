@@ -444,8 +444,9 @@ class ReasoningLinearLayer(torch.nn.Module):
             self.mapper_nn = SignRelevanceNet(sign_shape, n_classes)
 
         self.log = log
+        self.bias_computation = bias_comp
 
-    def forward(self, sign_attn, filter_attn, c, return_params=False, coeff_comp=None):
+    def forward(self, sign_attn, filter_attn, c, return_params=False):
         if self.log:
             logger.info(f"sign attention: {sign_attn.shape}")
             logger.info(f"filter attention: {filter_attn.shape}")
