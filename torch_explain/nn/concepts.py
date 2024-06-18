@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .semantics import Logic, GodelTNorm
 import logging
+import numpy as np
 # Configure logging
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -431,6 +432,7 @@ class ReasoningLinearLayer(torch.nn.Module):
     def __init__(self, sign_shape, filter_shape, n_classes, modality="PhDinZurich", log=False):
         super().__init__()
 
+        self.n_classes = n_classes
         # Sign Shape == Filter Shape == sign_attn.shape[1]
 
         self.mode = modality
@@ -479,6 +481,118 @@ class ReasoningLinearLayer(torch.nn.Module):
         if return_params:
             return preds, transformed_coeffs, bias_vals
         return preds
+
+    def explain(self, x, c, sign_attn, filter_attn, mode, concept_names=None, class_names=None, weight_attn=None, log=False):
+        '''
+            How explanation using a linear layer works?
+            We know that the output of the linear layer is given by:
+            y = \sum{c_i * alpha_i} + bias
+            so each alpha_i can represent the importance of the concept c_i for the prediction y
+            Comparing to DCR: if alpha_i > 1/n_concepts -> c_i is important
+            What about the sign ? The sign is simply the sign of the alpha_i real sign!
+        '''
+
+        assert mode in ['local', 'global']
+
+        if concept_names is None:
+            concept_names = [f'c_{i}' for i in range(c.shape[1])]
+        if class_names is None:
+            class_names = [f'y_{i}' for i in range(self.n_classes)]
+
+        preds, transformed_coeffs, bias_vals = self.forward(
+            sign_attn, filter_attn, c, return_params=True)
+
+        if log:
+            logger.info(f"x: {x}")
+            logger.info(f"Preds: {preds}")
+            logger.info(f"Transformed Coeffs: {transformed_coeffs}")
+
+        preds = torch.sigmoid(preds)
+        soft_coeffs = torch.softmax(
+            torch.abs(
+                transformed_coeffs
+            ), dim=1)
+
+        if log:
+            logger.info(f"AFTER SOFT")
+            logger.info(f"x: {x}")
+            logger.info(f"Preds: {preds}")
+            logger.info(f"Coeffs: {soft_coeffs}")
+
+        explanations = []
+        all_class_explanations = {cn: [] for cn in class_names}
+        for sample_idx in range(len(x)):
+            prediction = preds[sample_idx] > 0.5
+            active_classes = torch.argwhere(prediction).ravel()
+
+            if log:
+                logger.info(f"prediction: {prediction}")
+                logger.info(f"Active Classes: {active_classes}")
+
+            if len(active_classes) == 0:
+                # if no class is active for this sample, then we cannot extract any explanation
+                explanations.append({
+                    'class': -1,
+                    'explanation': '',
+                    'attention': [],
+                })
+            else:
+                # else we can extract an explanation for each active class!
+                for target_class in active_classes:
+                    # We take the coeff corresponding to the target class
+                    # sign_expr : same weight
+                    sign_expr = transformed_coeffs[sample_idx, :, target_class]
+
+                    if log:
+                        print(f"Sign Expr: {sign_expr}")
+
+                    # this will return to us which concepts are important for the target class
+                    filter_expr = soft_coeffs[sample_idx, :, target_class] > (
+                        1/(self.n_classes+1))
+
+                    if log:
+                        print(f"Filter Expr: {filter_expr}")
+
+                    attentions = []
+                    minterm = []
+
+                    for concept_idx in range(len(concept_names)):
+                        if filter_expr[concept_idx]:  # if the concept is important
+                            if sign_expr[concept_idx] >= 0:
+                                minterm.append(f'{concept_names[concept_idx]}')
+                            else:
+                                minterm.append(
+                                    f'~{concept_names[concept_idx]}')
+
+                        attentions.append(
+                            soft_coeffs[sample_idx, concept_idx, target_class].item())
+                        if log:
+                            print(f"MinTerm: {minterm}")
+
+                    # add explanation to list
+                    target_class_name = class_names[target_class]
+                    minterm = ' & '.join(minterm)
+                    all_class_explanations[target_class_name].append(minterm)
+                    explanations.append({
+                        'sample-id': sample_idx,
+                        'class': target_class_name,
+                        'explanation': minterm,
+                        'attention': attentions,
+                    })
+
+        if mode == 'global':
+            # count most frequent explanations for each class
+            explanations = []
+            for class_id, class_explanations in all_class_explanations.items():
+                explanation_count = Counter(class_explanations)
+                for explanation, count in explanation_count.items():
+                    explanations.append({
+                        'class': class_id,
+                        'explanation': explanation,
+                        'count': count,
+                    })
+
+        return explanations
 
 
 class IntpLinearLayer(torch.nn.Module):
