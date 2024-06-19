@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from torch_explain.nn.semantics import GodelTNorm
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.inspection import permutation_importance
 
 
 def get_dataset(dataset_name, size=150000):
@@ -83,41 +84,86 @@ def create_df_DCRBase(x, cem, dcr):
     #Identify unique classes
     classes = set(col.split('_')[-1] for col in df.columns if 'y' in col)
 
-    #Divide DataFrame for each class and store in a dictionary
-    dfs = {c: df[[col for col in df.columns if c in col]] for c in classes}
+    #Add a column with the predicted class to the DataFrame
+    df['class'] = y_pred_dt.argmax(dim=1)
+    df['class'] = df['class'].apply(lambda x: 'y0' if x == 0 else 'y1')
+    
+    return df, classes
 
-    return c_emb, y_pred_dt, dfs, classes
+
+def plot_feature_importance(df, dataset_name):
+    X = df.drop(columns=['class'])
+    y = df['class']
+
+    clf = RandomForestClassifier(max_depth=int(len(X.columns)/4), random_state=42)
+    clf.fit(X, y)
+        
+    # Aggregate the feature importance by the categorical variables
+    feature_importances = {}
+    for feature_name, imp in zip(clf.feature_names_in_, clf.feature_importances_):
+        feature_name = feature_name.split("_")[1] if "_" in feature_name else feature_name
+        if feature_name in feature_importances:
+            feature_importances[feature_name] += imp
+        else:
+            feature_importances[feature_name] = imp
+
+    # Sort the feature importance
+    feature_importances = dict(sorted(feature_importances.items(), key=lambda x: x[1], reverse=False))
+
+    # Plot the feature importance
+    y_values = list(feature_importances.keys())
+    x_values = list(feature_importances.values())
+    plt.barh(y_values, x_values, color='blue')
+    plt.xlabel("Feature importance")
+    plt.ylabel("Concepts")
+    plt.title(f"Feature importance aggregated by concept ({dataset_name})")
+    
+    # Add numerical values on the bar plot
+    #for index, value in enumerate(x_values):
+        #plt.text(value - 0.05, index, str(round(value, 3)), color='white', va='center')
+    
+    plt.tight_layout()
+    plt.show()
 
 
-def plot_feature_importance_aggregated(c_emb, y_pred_dt, dfs, classes):
+def plot_feature_importance_per_class(df, classes, dataset_name):
     n_classes = len(classes)
 
     # Create a figure with a subplot for each class
     fig, axs = plt.subplots(1, n_classes, figsize=(6 * n_classes, 5))
-    fig.suptitle("Feature importance aggregated by concept for each class")
+    fig.suptitle(f"Feature importance aggregated by concept for each class ({dataset_name})")
+
+    X = df.drop(columns=['class'])
+    y = df['class']
+
+    clf = RandomForestClassifier(max_depth=int(len(X.columns)/4), random_state=42)
+    clf.fit(X, y)
+
+    # Aggregate the feature importance by the categorical variables
+    feature_importances = {}
+    for feature_name, imp in zip(clf.feature_names_in_, clf.feature_importances_):
+        feature_name = feature_name.split("_")[1]+"_"+feature_name.split("_")[2] if "_" in feature_name else feature_name
+        if feature_name in feature_importances:
+            feature_importances[feature_name] += imp
+        else:
+            feature_importances[feature_name] = imp
+
+    # Sort the feature importance
+    feature_importances = dict(sorted(feature_importances.items(), key=lambda x: x[1], reverse=False))
 
     for ax, class_label in zip(axs, classes):
-        # Filter the data for the current class
-        df_class = dfs[class_label]
-
-        clf = RandomForestClassifier()
-        clf.fit(c_emb.detach().numpy().argmax(axis=1), y_pred_dt.detach().numpy().argmax(axis=1))
-    
-        # Aggregate the feature importance by the categorical variables
-        feature_importances = {}
-        for feature_name, imp in zip(df_class.columns, clf.feature_importances_):
-            feature_name = feature_name.split("_")[1] if "_" in feature_name else feature_name
-            if feature_name in feature_importances:
-                feature_importances[feature_name] += imp
-            else:
-                feature_importances[feature_name] = imp
-
-        # Sort the feature importance
-        feature_importances = dict(sorted(feature_importances.items(), key=lambda x: x[1], reverse=False))
+        feature_importances_c = {}
+        for feature_name, imp in feature_importances.items():
+            if feature_name.split("_")[1] == class_label:
+                feature_name = feature_name.split("_")[0] if "_" in feature_name else feature_name
+                if feature_name in feature_importances_c:
+                    feature_importances_c[feature_name] += imp
+                else:
+                    feature_importances_c[feature_name] = imp
 
         # Plot the feature importance
-        y_values = list(feature_importances.keys())
-        x_values = list(feature_importances.values())
+        y_values = list(feature_importances_c.keys())
+        x_values = list(feature_importances_c.values())
         x_values = [x/sum(x_values) for x in x_values]
         ax.barh(y_values, x_values, color='blue')
         ax.set_xlabel("Feature importance")
@@ -125,8 +171,8 @@ def plot_feature_importance_aggregated(c_emb, y_pred_dt, dfs, classes):
         ax.set_title(f"Class {class_label}")
 
         # Add numerical values on the bar plot
-        for index, value in enumerate(x_values):
-            ax.text(value - 0.05, index, str(round(value, 3)), color='white', va='center')
+        #for index, value in enumerate(x_values):
+            #ax.text(value - 0.05, index, str(round(value, 3)), color='white', va='center')
 
     plt.tight_layout()
     plt.show()
