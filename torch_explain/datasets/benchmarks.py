@@ -57,6 +57,92 @@ def is_bin_even(size: int, random_state: int = 42, log: bool = False) -> typing.
     return x, c, y.unsqueeze(-1)
 
 
+def mux412(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a balanced dataset for the 21-multiplexer problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    if size % 16 != 0:
+        raise ValueError(
+            "Size must be a multiple of 16 for balancing purposes.")
+
+    np.random.seed(random_state)
+
+    # Generate a balanced set of combinations for the concepts
+    base_combinations = np.array([[i, j, k, l, m, n]
+                                  for i in [0, 1]
+                                  for j in [0, 1]
+                                  for k in [0, 1]
+                                  for l in [0, 1]
+                                  for m in [0, 1]
+                                  for n in [0, 1]])
+
+    # Ensure enough repetitions to match the desired size
+    repetitions = size // 16
+    balanced_combinations = np.tile(base_combinations, (repetitions, 1))
+
+    # Shuffle the dataset to ensure randomness
+    np.random.shuffle(balanced_combinations)
+
+    # Convert to float and normalize between 0 and 1
+    x = balanced_combinations.astype(np.float32)
+    # Add small random noise to avoid exact 0.5 threshold
+    x = x + np.random.uniform(0, 0.5, x.shape)
+    x = np.clip(x, 0, 1)  # Ensure values are between 0 and 1
+
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+
+    # Define concepts: whether each value is greater than 0.5
+    c = balanced_combinations
+
+    if log:
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    # Define labels based on conditions
+    y1 = np.logical_or(
+        np.logical_and(
+            np.logical_and(c[:, 0], np.logical_not(c[:, 4])),
+            np.logical_not(c[:, 5])),
+
+        np.logical_and(
+            np.logical_and(c[:, 1], np.logical_not(c[:, 4])),
+            c[:, 5])
+    )
+
+    y2 = np.logical_or(
+        np.logical_and(
+            np.logical_and(c[:, 2], c[:, 4]),
+            np.logical_not(c[:, 5])),
+
+        np.logical_and(
+            np.logical_and(c[:, 3], c[:, 4]),
+            c[:, 5])
+    )
+
+    y = np.logical_or(y1, y2)
+
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
+    x = torch.FloatTensor(x)
+    c = torch.FloatTensor(c)
+    y = torch.FloatTensor(y)
+
+    return x, c, y.unsqueeze(-1)
+
+
 def mux41(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Generate a dataset for the 21-multiplexer problem.
@@ -113,6 +199,54 @@ def mux41(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[
     )
 
     y = np.logical_or(y1, y2)
+
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
+    x = torch.FloatTensor(x)
+    c = torch.FloatTensor(c)
+    y = torch.FloatTensor(y)
+
+    return x, c, y.unsqueeze(-1)
+
+
+def mux41Mod(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset for the 21-multiplexer problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Generate random samples uniformly between 0 and 1
+    x = np.random.uniform(0, 1, (size, 6))
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+
+    # Define concepts: whether each value is greater than 0.5
+    c = np.stack([
+        x[:, 0] > 0.5,  # c0
+        x[:, 1] > 0.5,  # c1
+        x[:, 2] > 0.5,  # c2
+        x[:, 3] > 0.5,  # c3
+        x[:, 4] > 0.5,  # x1
+        x[:, 5] > 0.5,  # x2
+    ]).T
+    if log:
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    y = (x[:, 4] > 0.5).astype(int) * 2 + (x[:, 5] > 0.5).astype(int)
 
     if log:
         logger.info(f"y: {y.shape}")

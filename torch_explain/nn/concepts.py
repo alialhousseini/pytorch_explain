@@ -548,7 +548,7 @@ class ReasoningLinearLayer(torch.nn.Module):
 
                     # this will return to us which concepts are important for the target class
                     filter_expr = soft_coeffs[sample_idx, :, target_class] > (
-                        1/(self.n_classes+1))
+                        1/self.n_classes)
 
                     if log:
                         print(f"Filter Expr: {filter_expr}")
