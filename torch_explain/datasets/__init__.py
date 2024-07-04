@@ -7,5 +7,6 @@ __all__ = [
     'is_bin_even',
     'mux41',
     'mux41_two_inputs',
-    'two_muxes'
+    'two_muxes',
+    'xnor'
 ]

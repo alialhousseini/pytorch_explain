@@ -282,6 +282,59 @@ def xor(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[to
 
     # Define labels as XOR of the two concepts
     y = np.logical_xor(c[:, 0], c[:, 1])
+    
+
+    if log:
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
+    x = torch.FloatTensor(x)
+    c = torch.FloatTensor(c)
+    y = torch.FloatTensor(y)
+
+    # In summary, y.unsqueeze(-1) transforms 
+    # a 1D tensor into a 2D tensor by adding 
+    # an extra dimension at the end.
+    return x, c, y.unsqueeze(-1)
+
+
+################################################################################################################################
+############################################ ORIGINAL: Pietro Barbiero #########################################################
+def xnor(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a dataset for the XOR problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Generate random samples uniformly between 0 and 1
+    x = np.random.uniform(0, 1, (size, 2))
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+
+    # Define concepts: whether each value is greater than 0.5
+    c = np.stack([
+        x[:, 0] > 0.5,
+        x[:, 1] > 0.5,
+    ]).T
+
+    if log:
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+
+    # Define labels as NOT(XOR) of the two concepts
+    y = np.logical_not(np.logical_xor(c[:, 0], c[:, 1]))
+    
 
     if log:
         logger.info(f"y: {y.shape}")
