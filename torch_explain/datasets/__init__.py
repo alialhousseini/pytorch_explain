@@ -1,4 +1,4 @@
-from .benchmarks import xor, trigonometry, dot, is_bin_even, mux41, mux41_two_inputs, two_muxes, mux412, mux41Mod
+from .benchmarks import xor, xnor, trigonometry, dot, is_bin_even, mux41, mux41_two_inputs, two_muxes, mux412, mux41Mod
 
 __all__ = [
     'xor',
@@ -9,5 +9,6 @@ __all__ = [
     'mux41_two_inputs',
     'two_muxes',
     'mux412',
-    'mux41Mod'
+    'mux41Mod',
+    'xnor'
 ]
