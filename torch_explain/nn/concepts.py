@@ -337,8 +337,8 @@ class IntpLinearLayer2(torch.nn.Module):
 
         # y = \sum{c_i * alpha_i} + \sum{NOT(c_i) * beta_i}
         neg_c = self.logic.neg(c)
-        print(c.unsqueeze(-1).shape)
-        print(coeff_valpos.shape)
+        # print(c.unsqueeze(-1).shape)
+        # print(coeff_valpos.shape)
         logits = (c.unsqueeze(-1) * coeff_valpos).sum(dim=1).float() + \
             (neg_c.unsqueeze(-1) * coeff_valneg).sum(dim=1).float()
 
@@ -386,6 +386,7 @@ class IntpLinearLayer3(torch.nn.Module):
         self.emb_size = emb_size
         self.n_classes = n_classes
         self.bias_computation = bias_computation
+        self.bias = bias
 
         # This NN is responsible to learn the weight of each concept
         self.coeff_pos = torch.nn.Sequential(
