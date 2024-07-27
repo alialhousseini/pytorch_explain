@@ -2,7 +2,15 @@ from typing import List
 import torch
 from sympy import lambdify, sympify
 import copy
+import logging
+import typing
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler('app.log'), logging.StreamHandler()])
+
+logger = logging.getLogger(__name__)
 
 
 def replace_names(explanation: str, concept_names: List[str]) -> str:
@@ -12,7 +20,8 @@ def replace_names(explanation: str, concept_names: List[str]) -> str:
     :param concept_names: new concept names
     :return: Formula with renamed concepts
     """
-    feature_abbreviations = [f'feature{i:010}' for i in range(len(concept_names))]
+    feature_abbreviations = [
+        f'feature{i:010}' for i in range(len(concept_names))]
     mapping = []
     for f_abbr, f_name in zip(feature_abbreviations, concept_names):
         mapping.append((f_abbr, f_name))
@@ -23,7 +32,7 @@ def replace_names(explanation: str, concept_names: List[str]) -> str:
     return explanation
 
 
-def get_predictions(formula: str, x: torch.Tensor, threshold: float = 0.5):
+def get_predictions(formula: str, x: torch.Tensor, threshold: float = 0.5, log: bool = False) -> typing.Optional[torch.Tensor]:
     """
     Tests a logic formula.
     :param formula: logic formula
@@ -36,14 +45,34 @@ def get_predictions(formula: str, x: torch.Tensor, threshold: float = 0.5):
         return None
 
     else:
+
         concept_list = [f"feature{i:010}" for i in range(x.shape[1])]
         # get predictions using sympy
         # explanation = to_dnf(formula)
+        if log:
+            logger.info(f"Formula: {formula}")
+            logger.info(f"Concept list: {concept_list}")
+
+        #  convert the formula string into a symbolic expression.
         explanation = sympify(formula)
+        if log:
+            logger.info(f"Explanation: {explanation}")
+
+        # convert the symbolic expression into a NumPy function that can evaluate the logical formula on the input data
         fun = lambdify(concept_list, explanation, 'numpy')
+        if log:
+            logger.info(f"Function: {fun}")
+
         x = x.cpu().detach().numpy()
+
+        # Binarize features and evaluate the logical formula
         predictions = fun(*[x[:, i] > threshold for i in range(x.shape[1])])
+
+        if log:
+            logger.info(f"Predictions: {predictions}")
+
         return predictions
+
 
 def get_the_good_and_bad_terms(
     model, c, edge_index, sample_pos, explanation, target_class, concept_names=None, threshold=0.5
@@ -81,7 +110,7 @@ def get_the_good_and_bad_terms(
         if concept_names is not None:
             idx = concept_names.index(atom)
         else:
-            idx = int(atom[len("feature") :])
+            idx = int(atom[len("feature"):])
         temp_tensor = c[sample_pos].clone().detach().view(1, -1)
         temp_tensor = (
             perturb_inputs_rem(temp_tensor, idx)
@@ -101,3 +130,21 @@ def get_the_good_and_bad_terms(
             good.append(term)
         del temp_tensor
     return good, bad
+
+
+if __name__ == "__main__":
+    # Test the functions in this module
+
+    # 1 and 1 returns 1
+    # get_predictions("x0 & x1", torch.tensor(
+    #     [[0.1, 0.9], [0.4, 0.6]]), log=True)
+
+    # 0 or 0 returns 0
+    # get_predictions("y0 | y1", torch.tensor(
+    #     [[0.8, 0.2], [0.7, 0.3]]), log=True)
+
+    get_predictions("(x0 & x1)", torch.tensor(
+        [[0.1, 0.9], [0.6, 0.4]]), log=True)
+
+    get_predictions("(x0 & ~x1)", torch.tensor(
+        [[0.1, 0.9], [0.6, 0.4]]), log=True)
