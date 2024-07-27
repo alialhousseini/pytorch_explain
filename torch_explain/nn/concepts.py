@@ -195,11 +195,6 @@ class ConceptReasoningLayer(torch.nn.Module):
 
 
 class IntpLinearLayer1(torch.nn.Module):
-    """
-    This layer mimics the linear layer over concepts and for each it outputs a weight through a learnable neural network.
-    This Layer enhances global explainabality through the use of weights and studying them (posthoc)
-    """
-
     def __init__(self, emb_size, n_classes, bias=True, bias_computation="post", log=False):
         """
         Initializes an instance of the IntpLinearLayer class.
@@ -227,7 +222,6 @@ class IntpLinearLayer1(torch.nn.Module):
         )
 
         if self.bias:
-            # This NN is responsible to learn the bias of each concept (here, we have to handle later that each concept has a bias)
             self.bias_nn = torch.nn.Sequential(
                 torch.nn.Linear(emb_size, emb_size),
                 torch.nn.LeakyReLU(),
@@ -272,11 +266,6 @@ class IntpLinearLayer1(torch.nn.Module):
 
 
 class IntpLinearLayer2(torch.nn.Module):
-    """
-    This layer mimics the linear layer over concepts and for each it outputs a weight through a learnable neural network.
-    This Layer enhances global explainabality through the use of weights and studying them (posthoc)
-    """
-
     def __init__(self, emb_size, n_classes, bias=True, bias_computation="post", logic: Logic = GodelTNorm(), log=False):
         """
         Initializes an instance of the IntpLinearLayer class.
@@ -312,7 +301,6 @@ class IntpLinearLayer2(torch.nn.Module):
         )
 
         if self.bias:
-            # This NN is responsible to learn the bias of each concept (here, we have to handle later that each concept has a bias)
             self.bias_nn = torch.nn.Sequential(
                 torch.nn.Linear(emb_size, emb_size),
                 torch.nn.LeakyReLU(),
@@ -365,11 +353,6 @@ class IntpLinearLayer2(torch.nn.Module):
 
 
 class IntpLinearLayer3(torch.nn.Module):
-    """
-    This layer mimics the linear layer over concepts and for each it outputs a weight through a learnable neural network.
-    This Layer enhances global explainabality through the use of weights and studying them (posthoc)
-    """
-
     def __init__(self, emb_size, n_classes, bias=True, bias_computation="post", log=False):
         """
         Initializes an instance of the IntpLinearLayer class.
@@ -404,8 +387,13 @@ class IntpLinearLayer3(torch.nn.Module):
         )
 
         if self.bias:
-            # This NN is responsible to learn the bias of each concept (here, we have to handle later that each concept has a bias)
-            self.bias_nn = torch.nn.Sequential(
+            self.bias_pos = torch.nn.Sequential(
+                torch.nn.Linear(emb_size, emb_size),
+                torch.nn.LeakyReLU(),
+                torch.nn.Linear(emb_size, n_classes)
+            )
+
+            self.bias_neg = torch.nn.Sequential(
                 torch.nn.Linear(emb_size, emb_size),
                 torch.nn.LeakyReLU(),
                 torch.nn.Linear(emb_size, n_classes)
@@ -438,13 +426,14 @@ class IntpLinearLayer3(torch.nn.Module):
 
         if self.bias:
             if self.bias_computation == "post":
-                bias_vals = self.bias_nn(x)
+                bias_vals = self.bias_pos(x) - self.bias_neg(x)
                 bias_vals = bias_vals.mean(dim=1)
                 if self.log:
                     logger.info(f"Assigned Biases: {bias_vals.shape}")
                     logger.info(f"Assigned Biases: {bias_vals}")
             else:
-                bias_vals = self.bias_nn(x.mean(dim=1))
+                bias_vals = self.bias_pos(
+                    x.mean(dim=1)) - self.bias_neg(x.mean(dim=1))
 
         logits += bias_vals
 

@@ -378,6 +378,70 @@ def two_muxes(size: int, random_state: int = 42, log: bool = False) -> typing.Tu
     return x, c, y.unsqueeze(-1)
 
 
+def xor_mod(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Generate a balanced dataset for the XOR problem.
+
+    Args:
+    size (int): Number of samples to generate.
+    random_state (int): Seed for random number generation.
+    log (bool): Whether to log the dataset details.
+
+    Returns:
+    tuple: A tuple containing input features (x), concepts (c), and labels (y).
+    """
+    # Ensure size is divisible by 4 for equal distribution
+    assert size % 4 == 0, "Size must be divisible by 4 to ensure equal distribution of samples."
+
+    # Set random seed for reproducibility
+    np.random.seed(random_state)
+
+    # Calculate the number of samples per combination
+    samples_per_combination = size // 4
+
+    # Create each combination of inputs
+    combinations = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+
+    # Generate the balanced dataset
+    x_list = []
+    c_list = []
+    y_list = []
+
+    for comb in combinations:
+        x1 = np.random.uniform(0, 0.5, samples_per_combination) if comb[0] == 0 else np.random.uniform(
+            0.5, 1, samples_per_combination)
+        x2 = np.random.uniform(0, 0.5, samples_per_combination) if comb[1] == 0 else np.random.uniform(
+            0.5, 1, samples_per_combination)
+
+        x_comb = np.column_stack((x1, x2))
+        c_comb = np.array([comb] * samples_per_combination)
+        y_comb = np.logical_xor(c_comb[:, 0], c_comb[:, 1])
+
+        x_list.append(x_comb)
+        c_list.append(c_comb)
+        y_list.append(y_comb)
+
+    # Concatenate the lists to form the final arrays
+    x = np.vstack(x_list)
+    c = np.vstack(c_list)
+    y = np.hstack(y_list)
+
+    if log:
+        logger.info(f"x: {x.shape}")
+        logger.info(f"x: {x[:5]}")
+        logger.info(f"c: {c.shape}")
+        logger.info(f"c: {c[:5]}")
+        logger.info(f"y: {y.shape}")
+        logger.info(f"y: {y[:5]}")
+
+    # Convert numpy arrays to PyTorch tensors
+    x = torch.FloatTensor(x)
+    c = torch.FloatTensor(c)
+    y = torch.FloatTensor(y)
+
+    return x, c, y.unsqueeze(-1)
+
+
 def xor(size: int, random_state: int = 42, log: bool = False) -> typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Generate a dataset for the XOR problem.
