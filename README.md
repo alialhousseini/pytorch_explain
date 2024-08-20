@@ -1,6 +1,8 @@
 ## Explainable AI Through Linear Concept Layer: Advancing Deep Concept Reasoner
 
-This repository contains the code and resources for our Concept-based XAI project. This work addresses challenges in the interpretability and trustworthiness of complex AI systems by exploring concept-based models in Explainable AI (XAI). It focus on enhancing Concept-Based Explainable AI (C-XAI), a subfield that seeks to bridge the gap between human understanding and machine learning models through the use of high-level human-like concepts.
+This repository contains the code and resources for our Concept-based XAI project. This work addresses challenges in the interpretability and trustworthiness of complex AI systems by exploring concept-based models in Explainable AI (XAI). It focus on enhancing Concept-Based Explainable AI (C-XAI), a subfield that seeks to bridge the gap between human understanding and machine learning models through the use of high-level human-like concepts. [Paper](https://github.com/alialhousseini/pytorch_explain/blob/master/s333940_s317704_s320138.pdf)
+
+![img1](https://raw.githubusercontent.com/alialhousseini/pytorch_explain/master/imgs/Screenshot%202024-08-20%20184809.png)
 
 ### Summary of the paper
 The paper introduces a novel variant of the Concept Embedding Model (CEM) that incorporates a linear concept layer to improve the balance between accuracy, interpretability, and computational efficiency. This work builds on the foundation of prior models such as Concept Bottleneck Models (CBMs), which utilize human-specified concepts as intermediate steps in prediction but suffer from limitations like dependency on annotated data and a trade-off between accuracy and interpretability. CEMs improve upon CBMs by embedding concepts into high-dimensional spaces, enhancing accuracy but complicating interpretability.
@@ -9,7 +11,7 @@ To address these challenges, we proposed a model that integrates linear equation
 
 The paper presents experimental evaluations using datasets like XOR, XNOR, DOT, and MNIST-Addition to demonstrate the efficacy of the proposed method. These datasets test the model's ability to generalize and handle complex non-linear tasks.
 
-
+![img2](https://raw.githubusercontent.com/alialhousseini/pytorch_explain/master/imgs/Screenshot%202024-08-20%20184821.png)
 _____
 Quick start
 ---------------
@@ -144,4 +146,7 @@ in the folder `torch_explain/datasets`. The paper "Concept Embedding Models: Bey
 
 Real-world datasets can be downloaded from the links provided in the supplementary material of the paper.
 
+Acknowledgments
+-------------------------
+This projects builds on the foundational work of Pietro Barbiero, Gabriele Ciravegna, Francesco Giannini, Mateo Espinosa Zarlenga in their paper [Interpretable Neural-Symbolic Concept Reasoning](https://arxiv.org/abs/2304.14068).  We extend our gratitude to the original authors for their significant contributions to the field.We would like to extend our sincere gratitude to [Professor Eliana Pastor](https://www.polito.it/personale?p=eliana.pastor) and [Gabriele Ciravegna](https://www.polito.it/personale?p=gabriele.ciravegna) for their invaluable guidance, support, and insights throughout the course of this project. Their expertise and encouragement have been instrumental in the successful completion of our work.
 
